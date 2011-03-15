@@ -13,6 +13,24 @@ import javax.swing.text.html.*;
  * @version 1.0
  */
 public class Spider {
+	
+	private static final Map< String, String> REQUEST_PROPERTIES = new HashMap<String, String>();
+	static {
+		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
+		REQUEST_PROPERTIES.put("Accept", "BDM_University_of_Sheffield/1.0");
+		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
+		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
+		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
+	}
+	/*
+	 * A string value for the user agent field
+	 */	
+	public static final String USER_AGENT_FIELD = "User-Agent";
+	
+	/*
+	 * A string value for the user agent value
+	 */
+	public static final String USER_AGENT_VALUE = "BDM_University_of_Sheffield/1.0";
 
 	/**
 	 * A collection of URLs that resulted in an error
@@ -141,7 +159,6 @@ public class Spider {
 			// get the URL's contents
 			
 			URLConnection connection = url.openConnection();
-//			connection.setRequestProperty(, value)
 			if ( (connection.getContentType()!=null) && !connection.getContentType().toLowerCase().startsWith("text/") ) 
 			{
 				getActiveLinkQueue().remove(url);
@@ -253,5 +270,11 @@ public class Spider {
 	public void log(String entry)
 	{
 		System.out.println( (new Date()) + ":" + entry );
+	}
+
+	public void setRequestProperties(URLConnection connection) {
+		connection.setRequestProperty(USER_AGENT_FIELD, USER_AGENT_VALUE);
+		
+		
 	}
 }
