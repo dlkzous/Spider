@@ -34,9 +34,12 @@ public class SpiderTest extends TestCase {
 			URL url = new URL(TEST_PATH);
 			URLConnection connection = url.openConnection();
 			spider.setRequestProperties(connection);
-			assertEquals(USER_AGENT_VALUE,connection.getRequestProperty(USER_AGENT_FIELD));
-		
-		
+			assertEquals(USER_AGENT_VALUE,connection.getRequestProperty(USER_AGENT_FIELD));		
+			
 	}
 
+	public void testPause() throws IOException
+	{
+					
+	}
 }

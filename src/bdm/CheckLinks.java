@@ -209,13 +209,13 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 			};
 			
 			SwingUtilities.invokeLater(doLater);
-			backgroundThread=null;
 		
 		} catch ( MalformedURLException e ) 
 		{
-		      UpdateErrors err = new UpdateErrors();
-		      err.msg = "Bad address.";
-		      SwingUtilities.invokeLater(err);
+			backgroundThread=null;
+			UpdateErrors err = new UpdateErrors();
+			err.msg = "Bad address.";
+			SwingUtilities.invokeLater(err);
 		
 		}
 	}

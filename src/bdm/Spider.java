@@ -17,10 +17,9 @@ public class Spider {
 	private static final Map< String, String> REQUEST_PROPERTIES = new HashMap<String, String>();
 	static {
 		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
-		REQUEST_PROPERTIES.put("Accept", "BDM_University_of_Sheffield/1.0");
-		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
-		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
-		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
+		REQUEST_PROPERTIES.put("Accept-Language", "en");
+		REQUEST_PROPERTIES.put("Content-Type", "application/xwww-form-urlencoded");
+	
 	}
 	/*
 	 * A string value for the user agent field
@@ -273,7 +272,10 @@ public class Spider {
 	}
 
 	public void setRequestProperties(URLConnection connection) {
-		connection.setRequestProperty(USER_AGENT_FIELD, USER_AGENT_VALUE);
+		for(String key: REQUEST_PROPERTIES.keySet())
+		{
+			connection.setRequestProperty(key, REQUEST_PROPERTIES.get(key));
+		}
 		
 		
 	}
