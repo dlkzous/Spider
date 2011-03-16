@@ -200,8 +200,7 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 		{
 			this.errors.setText("");
 			this.base = new URL(this.url.getText());
-			this.spider = new Spider(this,this.base);
-			this.spider.clear();
+			this.spider = new Spider(this.base);
 			
 			this.spider.start();
 			Runnable doLater = new Runnable()

@@ -24,7 +24,7 @@ public class SpiderTest extends TestCase {
 	@Override
 	@Before
 	public void setUp() throws Exception {
-		this.spider = new Spider(null, new URL("http://poplar.dcs.shef.ac.uk"));
+		this.spider = new Spider(new URL("http://poplar.dcs.shef.ac.uk"));
 	}
 
 	@Override

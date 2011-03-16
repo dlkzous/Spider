@@ -8,9 +8,9 @@ import javax.swing.text.*;
 import javax.swing.text.html.*;
 
 /**
- * That class implements a reusable spider
+ * That class implements a spider
  * 
- * @author Jeff Heaton(http://www.jeffheaton.com)
+ * @author BDM based on Jeff Heaton's Spider
  * @version 1.0
  */
 public class Spider {
@@ -35,6 +35,9 @@ public class Spider {
 
 	public static final String CONTENT_TYPE_VALUE = "application/xwww-form-urlencoded";
 
+	/**
+	 * Request properties for the spider crawling the web
+	 */
 	private static final Map<String, String> REQUEST_PROPERTIES = new HashMap<String, String>();
 	static {
 		REQUEST_PROPERTIES.put(USER_AGENT_FIELD, USER_AGENT_VALUE);
@@ -43,14 +46,29 @@ public class Spider {
 
 	}
 
+	/**
+	 * urls disallowed by robots.txt
+	 */
 	private Set<URL> disallowedURLs = new HashSet<URL>();
 	
-	
+	/**
+	 * base url this spider operates on
+	 */
 	private URL base;
 	
+	/**
+	 * delay between fetching urls
+	 */
 	private long crawlDelay;
 	
+	/**
+	 * file path to save local urls
+	 */
 	private String localURLsPath;
+	
+	/**
+	 * file path to save external urls
+	 */
 	private String externalURLsPath;
 	/**
 	 * A collection of URLs that resulted in an error
@@ -63,32 +81,35 @@ public class Spider {
 	private Collection<URL> activeLinkQueue = new HashSet<URL>();
 
 	/**
-	 * A collection of URLs that were processed
+	 * A collection of internal URLs that were processed
 	 */
-	private Collection<URL> goodInternalLinksProcessed = new HashSet<URL>();
+	private Collection<URL> internalLinksProcessed = new HashSet<URL>();
 
-	private Collection<URL> goodExternalLinksProcessed = new HashSet<URL>();
+	/**
+	 * A collection of external URLs that were processed
+	 */
+	private Collection<URL> externalLinksProcessed = new HashSet<URL>();
 	/**
 	 * The class that the spider should report its URLs to
 	 */
-	ISpiderReportable report;
 
+	/**
+	 * The spider thread
+	 */
 	private Thread processingThread;
 
 	/**
-	 * A flag that indicates whether this process should be canceled
+	 * Is the spider working at the moment?
 	 */
 	private volatile boolean running = false;
 
 	/**
-	 * The constructor
+	 * The constructor intitalizes the base url, the file paths and read robots.txt
 	 * 
-	 * @param report
-	 *            A class that implements the ISpiderReportable interface, that
-	 *            will receive information that the spider finds.
+	 * @param base
+	 *            
 	 */
-	public Spider(ISpiderReportable report, URL base) {
-		this.report = report;
+	public Spider(URL base) {
 		this.base = base;
 		this.localURLsPath = base.getHost() + "_localIWURLs";
 		this.externalURLsPath = base.getHost() + "_externalIWURLs";
@@ -97,6 +118,9 @@ public class Spider {
 		initDisallowedURLs();
 	}
 
+	/**
+	 * set up disallowed urls from robots.txt
+	 */
 	private void initDisallowedURLs() {
 		try {
 			URL robotURL = new URL(ROBOTS_TXT_URL);
@@ -164,23 +188,23 @@ public class Spider {
 	 * 
 	 * @return A collection of URLs.
 	 */
-	public Collection<URL> getGoodInternalLinksProcessed() {
-		return this.goodInternalLinksProcessed;
+	public Collection<URL> getInternalLinksProcessed() {
+		return this.internalLinksProcessed;
 	}
 
-	public Collection<URL> getGoodExternalLinksProcessed() {
-		return this.goodExternalLinksProcessed;
+	public Collection<URL> getExternalLinksProcessed() {
+		return this.externalLinksProcessed;
 	}
 
 	/**
-	 * Clear all of the workloads.
-	 */
-	public void clear() {
-		getDeadLinksProcessed().clear();
-		getActiveLinkQueue().clear();
-		getGoodInternalLinksProcessed().clear();
-		getGoodExternalLinksProcessed().clear();
-	}
+//	 * Clear all of the workloads.
+//	 */
+//	public void clear() {
+//		getDeadLinksProcessed().clear();
+//		getActiveLinkQueue().clear();
+//		getGoodInternalLinksProcessed().clear();
+//		getGoodExternalLinksProcessed().clear();
+//	}
 
 	/**
 	 * Add a URL for processing.
@@ -192,9 +216,9 @@ public class Spider {
 			return;
 		if (getDeadLinksProcessed().contains(url))
 			return;
-		if (getGoodInternalLinksProcessed().contains(url))
+		if (getInternalLinksProcessed().contains(url))
 			return;
-		if (getGoodExternalLinksProcessed().contains(url))
+		if (getExternalLinksProcessed().contains(url))
 			return;
 		log("Adding to workload: " + url);
 		getActiveLinkQueue().add(url);
@@ -215,24 +239,24 @@ public class Spider {
 		getActiveLinkQueue().remove(url);
 		log("Processing: " + url);
 		try {
-			// get the URL's contents
+			
 			
 			if (!isInternal(url)){
 				log("External link - " + url);
-				getGoodExternalLinksProcessed().add(url);
+				getExternalLinksProcessed().add(url);
 				return;
 			}
 			if (!isRobotAllowed(url)){
 				log("Disallowed by robots.txt - " + url);
-				getGoodInternalLinksProcessed().add(url);
+				getInternalLinksProcessed().add(url);
 				return;
 			}
 			
 			URLConnection connection = url.openConnection();
 			if (!isParseable(connection)) {
-				getGoodInternalLinksProcessed().add(url);
 				log("Not processing because content type is: "
 						+ connection.getContentType());
+				getInternalLinksProcessed().add(url);
 				return;
 			}
 
@@ -244,12 +268,11 @@ public class Spider {
 			parser.parse(r, new Parser(url), true);
 
 			// mark URL as complete
-			getGoodInternalLinksProcessed().add(url);
+			getInternalLinksProcessed().add(url);
 			log("Complete: " + url);
 		} catch (IOException e) {
 			getDeadLinksProcessed().add(url);
 			log("Error: " + url);
-			this.report.spiderURLError(url);
 		}
 	}
 	
@@ -282,7 +305,6 @@ public class Spider {
 				try {
 					printToFile();
 				} catch (FileNotFoundException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				
@@ -305,9 +327,18 @@ public class Spider {
 		this.running = false;
 	}
 
+	/**
+	 * 
+	 * @return is the parser running?
+	 */
 	public boolean isRunning() {
 		return this.running;
 	}
+	
+	/**
+	 * takes a url from the active queue and processes it, then 
+	 * prints to file in the end. Stops if paused.
+	 */
 	public synchronized void processActiveQueue() {
 		if (this.running) {
 			return;
@@ -336,8 +367,6 @@ public class Spider {
 	/**
 	 * A HTML parser callback used by this class to detect links
 	 * 
-	 * @author Jeff Heaton
-	 * @version 1.0
 	 */
 	private class Parser extends HTMLEditorKit.ParserCallback {
 		private URL parserBase;
@@ -362,7 +391,6 @@ public class Spider {
 				href = href.substring(0, i);
 
 			if (href.toLowerCase().startsWith("mailto:")) {
-				Spider.this.report.spiderFoundEMail(href);
 				return;
 			}
 
@@ -409,24 +437,37 @@ public class Spider {
 
 	}
 
+	/**
+	 * cecks that a url is allowed by robots.txt
+	 * @param checkURL the url to check
+	 * @return is the url allowed?
+	 */
 	public boolean isRobotAllowed(URL checkURL) {
 		return !this.disallowedURLs.contains(checkURL);
 	}
 
+	/**
+	 * 
+	 * @return a set of disallowed urls
+	 */
 	public Set<URL> getDisallowedURLs() {
 		return this.disallowedURLs;
 	}
 	
+	/**
+	 * prints internal and external urls to two files
+	 * @throws FileNotFoundException
+	 */
 	public void printToFile() throws FileNotFoundException{
 		PrintWriter internalURLWriter = new PrintWriter(this.localURLsPath);
-		for (URL url : getGoodInternalLinksProcessed()){
+		for (URL url : getInternalLinksProcessed()){
 			internalURLWriter.println(url);
 		}
 		internalURLWriter.flush();
 		internalURLWriter.close();
 		
 		PrintWriter externalURLWriter = new PrintWriter(this.externalURLsPath);
-		for (URL url : getGoodExternalLinksProcessed()){
+		for (URL url : getExternalLinksProcessed()){
 			externalURLWriter.println(url);
 		}
 		externalURLWriter.flush();
