@@ -34,30 +34,32 @@ public class Spider {
 	/**
 	 * A collection of URLs that resulted in an error
 	 */
-	Collection<URL> deadLinksProcessed = new HashSet<URL>();
+	private Collection<URL> deadLinksProcessed = new HashSet<URL>();
 
 	/**
 	 * A collection of URLs that are waiting to be processed
 	 */
-	Collection<URL> activeLinkQueue = new HashSet<URL>();
+	private Collection<URL> activeLinkQueue = new HashSet<URL>();
 	
 	/**
 	 * A collection of URLs that were processed
 	 */
-	Collection<URL> goodInternalLinksProcessed = new HashSet<URL>();
+	private Collection<URL> goodInternalLinksProcessed = new HashSet<URL>();
 
 	
-	Collection<URL> goodExternalLinksProcessed = new HashSet<URL>();
+	private Collection<URL> goodExternalLinksProcessed = new HashSet<URL>();
 	/**
 	 * The class that the spider should report its URLs to
 	 */
-	protected ISpiderReportable report;
+	ISpiderReportable report;
+	
+	private Thread processingThread;
 
 	/**
 	 * A flag that indicates whether this process
 	 * should be canceled
 	 */
-	protected boolean pause = false;
+	private volatile boolean running = false;
 
 	/**
 	 * The constructor
@@ -78,7 +80,7 @@ public class Spider {
 	 */
 	public Collection<URL> getDeadLinksProcessed()
 	{
-		return deadLinksProcessed;
+		return this.deadLinksProcessed;
 	}
 
 	/**
@@ -90,7 +92,7 @@ public class Spider {
 	 */
 	public Collection<URL> getActiveLinkQueue()
 	{
-		return activeLinkQueue;
+		return this.activeLinkQueue;
 	}
 
 	/**
@@ -100,11 +102,11 @@ public class Spider {
 	 */
 	public Collection<URL> getGoodInternalLinksProcessed()
 	{
-		return goodInternalLinksProcessed;
+		return this.goodInternalLinksProcessed;
 	}    
 	
 	public Collection<URL> getGoodExternalLinksProcessed() {
-		return goodExternalLinksProcessed;
+		return this.goodExternalLinksProcessed;
 	}
 	/**
 	 * Clear all of the workloads.
@@ -117,15 +119,6 @@ public class Spider {
     	getGoodExternalLinksProcessed().clear();
 	}
 	
-	/**
-	 * Set a flag that will cause the begin
-	 * method to return before it is done.
-  	 */
-	public void pause()
-	{
-		pause = true;
-	}
-
 	/**
 	 * Add a URL for processing.
 	 * 
@@ -183,24 +176,56 @@ public class Spider {
 			getActiveLinkQueue().remove(url);
 			getDeadLinksProcessed().add(url);
 			log("Error: " + url );
-			report.spiderURLError(url);
+			this.report.spiderURLError(url);
 		}
 	}
+	/**
+	 * Called to start the spider with a base url
+	 */
+	public void start(URL base)
+	{
+		this.processingThread = Thread.currentThread();
+		getActiveLinkQueue().add(base);
+		processActiveQueue();
+		
+	}
 
+	/**
+	 * Stops the spider permanently.
+	 */
+	public void stop(){
+		if (this.processingThread != null){
+			this.processingThread.interrupt();
+		}
+	}
+	
+	
+
+	/**
+	 * Resumes processing active links
+	 */
 	public void resume(){
-		start();
+		processActiveQueue();
 	}
 	/**
-	 * Called to start the spider
+	 * Pauses the spider
 	 */
-	public void start()
+	public void pause()
 	{
-		pause = false;
-		while ( !getActiveLinkQueue().isEmpty() && !pause ) 
-		{
-			Object list[] = getActiveLinkQueue().toArray();
-			for ( int i=0;(i<list.length)&&!pause;i++ )
-				processURL((URL)list[i]);
+		this.running = false;
+	}
+
+	public void processActiveQueue(){
+		if (this.running){
+			return;
+		}
+		
+		this.running = true;
+		for (URL currUrl : getActiveLinkQueue()){
+			if (!this.running){
+				break;
+			}
+			processURL(currUrl);
 		}
 	}
 
@@ -210,15 +235,16 @@ public class Spider {
 	 * @author Jeff Heaton
 	 * @version 1.0
 	 */
-	class Parser extends HTMLEditorKit.ParserCallback 
+	private class Parser extends HTMLEditorKit.ParserCallback 
 	{
-		URL base;
+		private URL base;
 		
 		public Parser(URL base)
 		{
 		  this.base = base;
 		}
 		
+		@Override
 		public void handleSimpleTag(HTML.Tag tag,MutableAttributeSet attributes,int pos)
 		{
 			String href = (String)attributes.getAttribute(HTML.Attribute.HREF);
@@ -235,23 +261,24 @@ public class Spider {
 		
 			if ( href.toLowerCase().startsWith("mailto:") ) 
 			{
-				report.spiderFoundEMail(href);
+				Spider.this.report.spiderFoundEMail(href);
 				return;
 			}
 		
-			handleLink(base,href);
+			handleLink(href);
 		}
 		
+		@Override
 		public void handleStartTag(HTML.Tag t,MutableAttributeSet a,int pos)
 		{
 			handleSimpleTag(t,a,pos);    // handle the same way
 		}
 		
-		protected void handleLink(URL base,String str)
+		protected void handleLink(String str)
 		{
 			try {
-				URL url = new URL(base,str);
-				if ( report.spiderFoundURL(base,url) )
+				URL url = new URL(this.base,str);
+				if ( Spider.this.report.spiderFoundURL(this.base,url) )
 					addURL(url);
 			} catch ( MalformedURLException e ) {
 				log("Found malformed URL: " + str );
@@ -271,6 +298,11 @@ public class Spider {
 		System.out.println( (new Date()) + ":" + entry );
 	}
 
+	/**
+	 * Adds the Spider's headers to the connection
+	 * 
+	 * @param connection the connection to set the request properties for
+	 */
 	public void setRequestProperties(URLConnection connection) {
 		for(String key: REQUEST_PROPERTIES.keySet())
 		{

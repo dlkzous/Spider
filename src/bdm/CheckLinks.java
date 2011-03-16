@@ -28,35 +28,35 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 		getContentPane().setLayout(null);
 		setSize(405,288);
 		setVisible(false);
-		label1.setText("Enter a URL:");
-		getContentPane().add(label1);
-		label1.setBounds(12,12,84,12);
-		begin.setText("Begin");
-		begin.setActionCommand("Begin");
-		getContentPane().add(begin);
-		begin.setBounds(12,36,84,24);
-		getContentPane().add(url);
-		url.setBounds(108,36,288,24);
-		errorScroll.setAutoscrolls(true);
-		errorScroll.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
-		errorScroll.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		errorScroll.setOpaque(true);
-		getContentPane().add(errorScroll);
-		errorScroll.setBounds(12,120,384,156);
-		errors.setEditable(false);
-		errorScroll.getViewport().add(errors);
-		errors.setBounds(0,0,366,138);
-		current.setText("Currently Processing: ");
-		getContentPane().add(current);
-		current.setBounds(12,72,384,12);
-		goodLinksLabel.setText("Good Links: 0");
-		getContentPane().add(goodLinksLabel);
-		goodLinksLabel.setBounds(12,96,192,12);
-		badLinksLabel.setText("Bad Links: 0");
-		getContentPane().add(badLinksLabel);
-		badLinksLabel.setBounds(216,96,96,12);
+		this.label1.setText("Enter a URL:");
+		getContentPane().add(this.label1);
+		this.label1.setBounds(12,12,84,12);
+		this.begin.setText("Begin");
+		this.begin.setActionCommand("Begin");
+		getContentPane().add(this.begin);
+		this.begin.setBounds(12,36,84,24);
+		getContentPane().add(this.url);
+		this.url.setBounds(108,36,288,24);
+		this.errorScroll.setAutoscrolls(true);
+		this.errorScroll.setHorizontalScrollBarPolicy(javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
+		this.errorScroll.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+		this.errorScroll.setOpaque(true);
+		getContentPane().add(this.errorScroll);
+		this.errorScroll.setBounds(12,120,384,156);
+		this.errors.setEditable(false);
+		this.errorScroll.getViewport().add(this.errors);
+		this.errors.setBounds(0,0,366,138);
+		this.current.setText("Currently Processing: ");
+		getContentPane().add(this.current);
+		this.current.setBounds(12,72,384,12);
+		this.goodLinksLabel.setText("Good Links: 0");
+		getContentPane().add(this.goodLinksLabel);
+		this.goodLinksLabel.setBounds(12,96,192,12);
+		this.badLinksLabel.setText("Bad Links: 0");
+		getContentPane().add(this.badLinksLabel);
+		this.badLinksLabel.setBounds(216,96,96,12);
 		SymAction lSymAction = new SymAction();
-		begin.addActionListener(lSymAction);
+		this.begin.addActionListener(lSymAction);
 	}
 	
 	/**
@@ -71,6 +71,7 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	/**
 	* Add notifications.
 	*/
+	@Override
 	public void addNotify()
 	{
 		// Record the size of the window prior to calling parent's
@@ -79,9 +80,9 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	
 		super.addNotify();
 	
-		if ( frameSizeAdjusted )
+		if ( this.frameSizeAdjusted )
 			return;
-		frameSizeAdjusted = true;
+		this.frameSizeAdjusted = true;
 	
 		// Adjust size of frame according to the insets and menu bar
 	    Insets insets = getInsets();
@@ -156,10 +157,11 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	 */
 	class SymAction implements java.awt.event.ActionListener 
 	{
+		@Override
 		public void actionPerformed(java.awt.event.ActionEvent event)
 		{
 			Object object = event.getSource();
-			if ( object == begin )
+			if ( object == CheckLinks.this.begin )
 				begin_actionPerformed(event);
 	    }
 	}
@@ -170,18 +172,19 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	 * 
 	 * @param event The event associated with the button.
 	 */
+	@SuppressWarnings("deprecation")
 	void begin_actionPerformed(java.awt.event.ActionEvent event)
 	{
-		if ( backgroundThread==null ) 
+		if ( this.backgroundThread==null ) 
 		{
-			  begin.setLabel("Cancel");
-			  backgroundThread = new Thread(this);
-			  backgroundThread.start();
-			  goodLinksCount=0;
-			  badLinksCount=0;
+			  this.begin.setLabel("Cancel");
+			  this.backgroundThread = new Thread(this);
+			  this.backgroundThread.start();
+			  this.goodLinksCount=0;
+			  this.badLinksCount=0;
 		} else 
 		{
-			spider.pause();
+			this.spider.pause();
 		}
 	
 	}
@@ -190,21 +193,23 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	 * Perform the background thread operation. This method
 	 * actually starts the background thread.
 	 */
+	@Override
 	public void run()
 	{
 		try 
 		{
-			errors.setText("");
-			spider = new Spider(this);
-			spider.clear();
-			base = new URL(url.getText());
-			spider.addURL(base);
-			spider.start();
+			this.errors.setText("");
+			this.spider = new Spider(this);
+			this.spider.clear();
+			this.base = new URL(this.url.getText());
+			
+			this.spider.start(this.base);
 			Runnable doLater = new Runnable()
 			{
+				@Override
 				public void run()
 				{
-					begin.setText("Begin");
+					CheckLinks.this.begin.setText("Begin");
 				}
 			};
 			
@@ -212,7 +217,7 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 		
 		} catch ( MalformedURLException e ) 
 		{
-			backgroundThread=null;
+			this.backgroundThread=null;
 			UpdateErrors err = new UpdateErrors();
 			err.msg = "Bad address.";
 			SwingUtilities.invokeLater(err);
@@ -227,6 +232,7 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	 * @param base The page that the link was found on.
 	 * @param url The actual link address.
 	 */
+	@Override
 	public boolean spiderFoundURL(URL base,URL url)
 	{
 		UpdateCurrentStats cs = new UpdateCurrentStats();
@@ -238,11 +244,11 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 			UpdateErrors err = new UpdateErrors();
 			err.msg = url+"(on page " + base + ")\n";
 			SwingUtilities.invokeLater(err);
-			badLinksCount++;
+			this.badLinksCount++;
 			return false;
 		}
 		
-		goodLinksCount++;
+		this.goodLinksCount++;
 		if ( !url.getHost().equalsIgnoreCase(base.getHost()) )
 		  return false;
 		else
@@ -254,6 +260,7 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	 * 
 	 * @param url The URL that resulted in an error.
 	 */
+	@Override
 	public void spiderURLError(URL url)
 	{
 	}
@@ -283,6 +290,7 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	 * @param email The email address the spider found.
 	 */
 	  
+	@Override
 	public void spiderFoundEMail(String email)
 	{
 	}
@@ -298,9 +306,10 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	class UpdateErrors implements Runnable 
 	{
 		public String msg;
+		@Override
 		public void run()
 		{
-			errors.append(msg);
+			CheckLinks.this.errors.append(this.msg);
 		}
 	}
 	
@@ -315,11 +324,12 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 	class UpdateCurrentStats implements Runnable 
 	{
 		public String msg;
+		@Override
 		public void run()
 		{
-			current.setText("Currently Processing: " + msg );
-			goodLinksLabel.setText("Good Links: " + goodLinksCount);
-			badLinksLabel.setText("Bad Links: " + badLinksCount);
+			CheckLinks.this.current.setText("Currently Processing: " + this.msg );
+			CheckLinks.this.goodLinksLabel.setText("Good Links: " + CheckLinks.this.goodLinksCount);
+			CheckLinks.this.badLinksLabel.setText("Bad Links: " + CheckLinks.this.badLinksCount);
 		}
 	}
 }

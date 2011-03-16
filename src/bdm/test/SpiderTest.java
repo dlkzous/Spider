@@ -16,14 +16,16 @@ import static bdm.Spider.*;
 
 public class SpiderTest extends TestCase {
 	
-	private Spider spider;
+	Spider spider;
 	private static final String TEST_PATH = "http://www.bestdealaz.com";
 
+	@Override
 	@Before
 	public void setUp() throws Exception {
-		spider = new Spider(null);
+		this.spider = new Spider(null);
 	}
 
+	@Override
 	@After
 	public void tearDown() throws Exception {
 	}
@@ -33,13 +35,30 @@ public class SpiderTest extends TestCase {
 		
 			URL url = new URL(TEST_PATH);
 			URLConnection connection = url.openConnection();
-			spider.setRequestProperties(connection);
+			this.spider.setRequestProperties(connection);
 			assertEquals(USER_AGENT_VALUE,connection.getRequestProperty(USER_AGENT_FIELD));		
 			
 	}
 
-	public void testPause() throws IOException
+	public void testPause() throws IOException, InterruptedException
 	{
-					
+			final Thread spiderThread = new Thread(new Runnable(){
+
+				@Override
+				public void run() {
+					try {
+						SpiderTest.this.spider.start(new URL(TEST_PATH));
+						
+					} catch (MalformedURLException e) {
+						fail(e.toString());
+					}
+				}
+				
+			});	
+			spiderThread.start();
+			Thread.sleep(1000); // wait for other thread to finish
+			SpiderTest.this.spider.stop();
+			assertTrue(spiderThread.isInterrupted());
+			
 	}
 }
