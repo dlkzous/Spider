@@ -199,11 +199,11 @@ public class CheckLinks extends javax.swing.JFrame implements Runnable,ISpiderRe
 		try 
 		{
 			this.errors.setText("");
-			this.spider = new Spider(this);
-			this.spider.clear();
 			this.base = new URL(this.url.getText());
+			this.spider = new Spider(this,this.base);
+			this.spider.clear();
 			
-			this.spider.start(this.base);
+			this.spider.start();
 			Runnable doLater = new Runnable()
 			{
 				@Override

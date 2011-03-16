@@ -3,6 +3,7 @@ package bdm;
 import java.util.*;
 import java.net.*;
 import java.io.*;
+
 import javax.swing.text.*;
 import javax.swing.text.html.*;
 
@@ -13,24 +14,44 @@ import javax.swing.text.html.*;
  * @version 1.0
  */
 public class Spider {
-	
-	private static final Map< String, String> REQUEST_PROPERTIES = new HashMap<String, String>();
-	static {
-		REQUEST_PROPERTIES.put("User-Agent", "BDM_University_of_Sheffield/1.0");
-		REQUEST_PROPERTIES.put("Accept-Language", "en");
-		REQUEST_PROPERTIES.put("Content-Type", "application/xwww-form-urlencoded");
-	
-	}
+
+	private static final String ROBOTS_TXT_URL = "http://poplar.dcs.shef.ac.uk/~u0082/intelweb2/robots.txt";
+
 	/*
 	 * A string value for the user agent field
-	 */	
+	 */
 	public static final String USER_AGENT_FIELD = "User-Agent";
-	
+
 	/*
 	 * A string value for the user agent value
 	 */
 	public static final String USER_AGENT_VALUE = "BDM_University_of_Sheffield/1.0";
 
+	public static final String ACCEPT_LANGUAGE_FIELD = "Accept-Language";
+
+	public static final String ACCEPT_LANGUAGE_VALUE = "en";
+
+	public static final String CONTENT_TYPE_FIELD = "Content-Type";
+
+	public static final String CONTENT_TYPE_VALUE = "application/xwww-form-urlencoded";
+
+	private static final Map<String, String> REQUEST_PROPERTIES = new HashMap<String, String>();
+	static {
+		REQUEST_PROPERTIES.put(USER_AGENT_FIELD, USER_AGENT_VALUE);
+		REQUEST_PROPERTIES.put(ACCEPT_LANGUAGE_FIELD, ACCEPT_LANGUAGE_VALUE);
+		REQUEST_PROPERTIES.put(CONTENT_TYPE_FIELD, CONTENT_TYPE_VALUE);
+
+	}
+
+	private Set<URL> disallowedURLs = new HashSet<URL>();
+	
+	
+	private URL base;
+	
+	private long crawlDelay;
+	
+	private String localURLsPath;
+	private String externalURLsPath;
 	/**
 	 * A collection of URLs that resulted in an error
 	 */
@@ -40,37 +61,83 @@ public class Spider {
 	 * A collection of URLs that are waiting to be processed
 	 */
 	private Collection<URL> activeLinkQueue = new HashSet<URL>();
-	
+
 	/**
 	 * A collection of URLs that were processed
 	 */
 	private Collection<URL> goodInternalLinksProcessed = new HashSet<URL>();
 
-	
 	private Collection<URL> goodExternalLinksProcessed = new HashSet<URL>();
 	/**
 	 * The class that the spider should report its URLs to
 	 */
 	ISpiderReportable report;
-	
+
 	private Thread processingThread;
 
 	/**
-	 * A flag that indicates whether this process
-	 * should be canceled
+	 * A flag that indicates whether this process should be canceled
 	 */
 	private volatile boolean running = false;
 
 	/**
 	 * The constructor
 	 * 
-	 * @param report A class that implements the ISpiderReportable
-	 * interface, that will receive information that the
-	 * spider finds.
+	 * @param report
+	 *            A class that implements the ISpiderReportable interface, that
+	 *            will receive information that the spider finds.
 	 */
-	public Spider(ISpiderReportable report)
-	{
+	public Spider(ISpiderReportable report, URL base) {
 		this.report = report;
+		this.base = base;
+		this.localURLsPath = base.getHost() + "_localIWURLs";
+		this.externalURLsPath = base.getHost() + "_externalIWURLs";
+		
+		getActiveLinkQueue().add(base);
+		initDisallowedURLs();
+	}
+
+	private void initDisallowedURLs() {
+		try {
+			URL robotURL = new URL(ROBOTS_TXT_URL);
+			URLConnection robotConn = robotURL.openConnection();
+			Scanner reader = new Scanner(robotConn.getInputStream());
+			boolean userAgentMatched = false;
+			while (reader.hasNextLine()){
+				String line = reader.nextLine();
+				line = line.trim().toLowerCase();
+				
+				if (line.startsWith("user-agent:")){
+					final int userAgentLength = 11;
+					line = line.substring(userAgentLength).trim();
+					if (line.equals(USER_AGENT_VALUE) || line.equals("*")){
+						userAgentMatched = true;
+					} else {
+						userAgentMatched = false;
+					}
+					continue;
+				}
+				
+				if (line.startsWith("disallow:")){
+					if (!userAgentMatched){
+						continue;
+					}
+					final int disallowedLength = 9;
+					line = line.substring(disallowedLength).trim();
+					URL disallowedURL = new URL(this.base,line);
+					this.disallowedURLs.add(disallowedURL);
+				}
+				
+				if (line.startsWith("crawl-delay:")){
+					final int crawlDelayLength = 12;
+					line = line.substring(crawlDelayLength).trim();
+					this.crawlDelay = (long) (Double.parseDouble(line)*1000);
+					
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	/**
@@ -78,20 +145,17 @@ public class Spider {
 	 * 
 	 * @return A collection of URL's.
 	 */
-	public Collection<URL> getDeadLinksProcessed()
-	{
+	public Collection<URL> getDeadLinksProcessed() {
 		return this.deadLinksProcessed;
 	}
 
 	/**
-	 * Get the URLs that were waiting to be processed.
-	 * You should add one URL to this collection to
-	 * begin the spider.
+	 * Get the URLs that were waiting to be processed. You should add one URL to
+	 * this collection to begin the spider.
 	 * 
 	 * @return A collection of URLs.
 	 */
-	public Collection<URL> getActiveLinkQueue()
-	{
+	public Collection<URL> getActiveLinkQueue() {
 		return this.activeLinkQueue;
 	}
 
@@ -100,132 +164,172 @@ public class Spider {
 	 * 
 	 * @return A collection of URLs.
 	 */
-	public Collection<URL> getGoodInternalLinksProcessed()
-	{
+	public Collection<URL> getGoodInternalLinksProcessed() {
 		return this.goodInternalLinksProcessed;
-	}    
-	
+	}
+
 	public Collection<URL> getGoodExternalLinksProcessed() {
 		return this.goodExternalLinksProcessed;
 	}
+
 	/**
 	 * Clear all of the workloads.
 	 */
-	public void clear()
-	{
+	public void clear() {
 		getDeadLinksProcessed().clear();
 		getActiveLinkQueue().clear();
-    	getGoodInternalLinksProcessed().clear();
-    	getGoodExternalLinksProcessed().clear();
+		getGoodInternalLinksProcessed().clear();
+		getGoodExternalLinksProcessed().clear();
 	}
-	
+
 	/**
 	 * Add a URL for processing.
 	 * 
 	 * @param url
 	 */
-	public void addURL(URL url)
-	{
-		if ( getActiveLinkQueue().contains(url) )
-		  return;
-		if ( getDeadLinksProcessed().contains(url) )
-		  return;
-		if ( getGoodInternalLinksProcessed().contains(url) )
-		  return;
-		if ( getGoodExternalLinksProcessed().contains(url) )
-		  return;
-		log("Adding to workload: " + url );
+	public void addURL(URL url) {
+		if (getActiveLinkQueue().contains(url))
+			return;
+		if (getDeadLinksProcessed().contains(url))
+			return;
+		if (getGoodInternalLinksProcessed().contains(url))
+			return;
+		if (getGoodExternalLinksProcessed().contains(url))
+			return;
+		log("Adding to workload: " + url);
 		getActiveLinkQueue().add(url);
 	}
 
+	public boolean isParseable(URLConnection connection){
+		return !((connection.getContentType() != null)
+		&& !connection.getContentType().toLowerCase()
+		.startsWith("text/"));
+	}
 	/**
 	 * Called internally to process a URL
-   	* 
-   	* @param url The URL to be processed.
-   	*/
-	public void processURL(URL url)
-	{
-		try 
-		{
-			log("Processing: " + url );
+	 * 
+	 * @param url
+	 *            The URL to be processed.
+	 */
+	public void processURL(URL url) {
+		getActiveLinkQueue().remove(url);
+		log("Processing: " + url);
+		try {
 			// get the URL's contents
 			
-			URLConnection connection = url.openConnection();
-			if ( (connection.getContentType()!=null) && !connection.getContentType().toLowerCase().startsWith("text/") ) 
-			{
-				getActiveLinkQueue().remove(url);
-				getGoodInternalLinksProcessed().add(url);
-				log("Not processing because content type is: " +
-						connection.getContentType() );
+			if (!isInternal(url)){
+				log("External link - " + url);
+				getGoodExternalLinksProcessed().add(url);
 				return;
 			}
-  
+			if (!isRobotAllowed(url)){
+				log("Disallowed by robots.txt - " + url);
+				getGoodInternalLinksProcessed().add(url);
+				return;
+			}
+			
+			URLConnection connection = url.openConnection();
+			if (!isParseable(connection)) {
+				getGoodInternalLinksProcessed().add(url);
+				log("Not processing because content type is: "
+						+ connection.getContentType());
+				return;
+			}
+
 			// read the URL
 			InputStream is = connection.getInputStream();
 			Reader r = new InputStreamReader(is);
 			// parse the URL
 			HTMLEditorKit.Parser parser = new HTMLParser().getParser();
-			parser.parse(r,new Parser(url),true);
-			
+			parser.parse(r, new Parser(url), true);
+
 			// mark URL as complete
-			getActiveLinkQueue().remove(url);
 			getGoodInternalLinksProcessed().add(url);
-			log("Complete: " + url );
-		} catch ( IOException e ) 
-		{
-			getActiveLinkQueue().remove(url);
+			log("Complete: " + url);
+		} catch (IOException e) {
 			getDeadLinksProcessed().add(url);
-			log("Error: " + url );
+			log("Error: " + url);
 			this.report.spiderURLError(url);
 		}
 	}
+	
+
+	public boolean isInternal(URL url) {
+		return url.getHost().equalsIgnoreCase(this.base.getHost());
+	}
+
 	/**
 	 * Called to start the spider with a base url
 	 */
-	public void start(URL base)
-	{
+	public void start() {
 		this.processingThread = Thread.currentThread();
-		getActiveLinkQueue().add(base);
-		processActiveQueue();
 		
+		processActiveQueue();
+
 	}
 
 	/**
 	 * Stops the spider permanently.
 	 */
-	public void stop(){
-		if (this.processingThread != null){
+	public void stop() {
+		if (this.processingThread != null) {
 			this.processingThread.interrupt();
 		}
+		new Thread(new Runnable(){
+
+			@Override
+			public void run() {
+				try {
+					printToFile();
+				} catch (FileNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+			}
+			
+		}).start();
 	}
-	
-	
 
 	/**
 	 * Resumes processing active links
 	 */
-	public void resume(){
+	public void resume() {
 		processActiveQueue();
 	}
+
 	/**
 	 * Pauses the spider
 	 */
-	public void pause()
-	{
+	public void pause() {
 		this.running = false;
 	}
 
-	public void processActiveQueue(){
-		if (this.running){
+	public boolean isRunning() {
+		return this.running;
+	}
+	public synchronized void processActiveQueue() {
+		if (this.running) {
 			return;
 		}
-		
+
 		this.running = true;
-		for (URL currUrl : getActiveLinkQueue()){
-			if (!this.running){
-				break;
+		for (URL currUrl : getActiveLinkQueue()) {
+			if (!this.running) {
+				return;
 			}
 			processURL(currUrl);
+			try {
+				Thread.sleep(this.crawlDelay);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			printToFile();
+		} catch (FileNotFoundException e) {
+			
+			e.printStackTrace();
 		}
 	}
 
@@ -235,80 +339,97 @@ public class Spider {
 	 * @author Jeff Heaton
 	 * @version 1.0
 	 */
-	private class Parser extends HTMLEditorKit.ParserCallback 
-	{
-		private URL base;
-		
-		public Parser(URL base)
-		{
-		  this.base = base;
+	private class Parser extends HTMLEditorKit.ParserCallback {
+		private URL parserBase;
+
+		public Parser(URL base) {
+			this.parserBase = base;
 		}
-		
+
 		@Override
-		public void handleSimpleTag(HTML.Tag tag,MutableAttributeSet attributes,int pos)
-		{
-			String href = (String)attributes.getAttribute(HTML.Attribute.HREF);
-		  
-			if( (href==null) && (tag==HTML.Tag.FRAME) )
-				href = (String)attributes.getAttribute(HTML.Attribute.SRC);
-		    
-			if ( href==null )
+		public void handleSimpleTag(HTML.Tag tag,
+				MutableAttributeSet attributes, int pos) {
+			String href = (String) attributes.getAttribute(HTML.Attribute.HREF);
+
+			if ((href == null) && (tag == HTML.Tag.FRAME))
+				href = (String) attributes.getAttribute(HTML.Attribute.SRC);
+
+			if (href == null)
 				return;
-		
+
 			int i = href.indexOf('#');
-			if ( i!=-1 )
-				href = href.substring(0,i);
-		
-			if ( href.toLowerCase().startsWith("mailto:") ) 
-			{
+			if (i != -1)
+				href = href.substring(0, i);
+
+			if (href.toLowerCase().startsWith("mailto:")) {
 				Spider.this.report.spiderFoundEMail(href);
 				return;
 			}
-		
+
 			handleLink(href);
 		}
-		
+
 		@Override
-		public void handleStartTag(HTML.Tag t,MutableAttributeSet a,int pos)
-		{
-			handleSimpleTag(t,a,pos);    // handle the same way
+		public void handleStartTag(HTML.Tag t, MutableAttributeSet a, int pos) {
+			handleSimpleTag(t, a, pos); // handle the same way
 		}
-		
-		protected void handleLink(String str)
-		{
+
+		protected void handleLink(String str) {
 			try {
-				URL url = new URL(this.base,str);
-				if ( Spider.this.report.spiderFoundURL(this.base,url) )
+				URL url = new URL(this.parserBase, str);
+//				if (Spider.this.report.spiderFoundURL(this.parserBase, url))
 					addURL(url);
-			} catch ( MalformedURLException e ) {
-				log("Found malformed URL: " + str );
+			} catch (MalformedURLException e) {
+				log("Found malformed URL: " + str);
 			}
 		}
 	}
 
 	/**
-	 * Called internally to log information
-	 * This basic method just writes the log
-	 * out to the stdout.
+	 * Called internally to log information This basic method just writes the
+	 * log out to the stdout.
 	 * 
-	 * @param entry The information to be written to the log.
+	 * @param entry
+	 *            The information to be written to the log.
 	 */
-	public void log(String entry)
-	{
-		System.out.println( (new Date()) + ":" + entry );
+	public void log(String entry) {
+		System.out.println((new Date()) + ":" + entry);
 	}
 
 	/**
 	 * Adds the Spider's headers to the connection
 	 * 
-	 * @param connection the connection to set the request properties for
+	 * @param connection
+	 *            the connection to set the request properties for
 	 */
 	public void setRequestProperties(URLConnection connection) {
-		for(String key: REQUEST_PROPERTIES.keySet())
-		{
+		for (String key : REQUEST_PROPERTIES.keySet()) {
 			connection.setRequestProperty(key, REQUEST_PROPERTIES.get(key));
 		}
+
+	}
+
+	public boolean isRobotAllowed(URL checkURL) {
+		return !this.disallowedURLs.contains(checkURL);
+	}
+
+	public Set<URL> getDisallowedURLs() {
+		return this.disallowedURLs;
+	}
+	
+	public void printToFile() throws FileNotFoundException{
+		PrintWriter internalURLWriter = new PrintWriter(this.localURLsPath);
+		for (URL url : getGoodInternalLinksProcessed()){
+			internalURLWriter.println(url);
+		}
+		internalURLWriter.flush();
+		internalURLWriter.close();
 		
-		
+		PrintWriter externalURLWriter = new PrintWriter(this.externalURLsPath);
+		for (URL url : getGoodExternalLinksProcessed()){
+			externalURLWriter.println(url);
+		}
+		externalURLWriter.flush();
+		externalURLWriter.close();
 	}
 }
